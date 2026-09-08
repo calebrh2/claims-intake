@@ -14,7 +14,7 @@ from decimal import Decimal
 import pytest
 
 from claims.models import ClaimType, NotificationRequest, Policy, RuleFailure
-from claims.policy_client import PolicyLookupFailed, StubPolicyClient
+from claims.policy_client import LookupFailureReason, PolicyLookupFailed, StubPolicyClient
 from claims.repository import NotificationRepository
 from claims.service import (
     evaluate_amount_within_limit,
@@ -22,8 +22,10 @@ from claims.service import (
     evaluate_loss_after_inception,
     evaluate_loss_before_expiry,
     evaluate_not_duplicate,
+    evaluate_notification,
     evaluate_policy_exists,
     evaluate_policy_not_cancelled,
+    submit_notification,
 )
 
 
@@ -309,3 +311,152 @@ def test_v6_rejected_notification_is_not_a_duplicate(
     failure = evaluate_not_duplicate(retry, repository)
 
     assert failure is None
+
+
+def test_evaluate_notification_reports_cancellation_before_expiry(
+    make_notification: Callable[..., NotificationRequest],
+    make_policy: Callable[..., Policy],
+) -> None:
+    """WI-0158 AC-4. Contract §4.1: V-7 before V-3 when both fail."""
+    policy = make_policy(
+        effective_date=date(2026, 3, 1),
+        expiry_date=date(2026, 12, 31),
+        cancellation_date=date(2026, 6, 1),
+    )
+    notification = make_notification(loss_date=date(2027, 1, 1))
+
+    failure = evaluate_notification(notification, policy)
+
+    assert _code(failure) == "POLICY_CANCELLED"
+    assert failure is not None
+    assert failure.rule == "V-7"
+
+
+def test_evaluate_notification_reports_inception_before_cancellation(
+    make_notification: Callable[..., NotificationRequest],
+    make_policy: Callable[..., Policy],
+) -> None:
+    """Contract §4.1: V-2 before V-7 when both fail."""
+    policy = make_policy(
+        effective_date=date(2026, 3, 1),
+        expiry_date=date(2026, 12, 31),
+        cancellation_date=date(2026, 6, 1),
+    )
+    notification = make_notification(loss_date=date(2026, 2, 1))
+
+    failure = evaluate_notification(notification, policy)
+
+    assert _code(failure) == "LOSS_BEFORE_INCEPTION"
+    assert failure is not None
+    assert failure.rule == "V-2"
+
+
+def test_evaluate_notification_passes_when_every_pure_rule_passes(
+    make_notification: Callable[..., NotificationRequest],
+    make_policy: Callable[..., Policy],
+) -> None:
+    policy = make_policy(
+        effective_date=date(2026, 3, 1),
+        expiry_date=date(2026, 12, 31),
+        cancellation_date=None,
+    )
+    notification = make_notification(loss_date=date(2026, 4, 2))
+
+    assert evaluate_notification(notification, policy) is None
+
+
+def test_submit_unknown_policy_is_not_found_not_inception(
+    make_notification: Callable[..., NotificationRequest],
+    policy_client: StubPolicyClient,
+    repository: NotificationRepository,
+) -> None:
+    """WI-0142 AC-4. An unknown number is V-1, not LOSS_BEFORE_INCEPTION."""
+    notification = make_notification(
+        policy_number="NO-SUCH-POLICY",
+        loss_date=date(2020, 1, 1),
+    )
+
+    outcome = submit_notification(notification, policy_client, repository)
+
+    assert outcome.accepted is False
+    assert outcome.failure is not None
+    assert outcome.failure.rule == "V-1"
+    assert outcome.failure.code == "POLICY_NOT_FOUND"
+    assert outcome.claim_reference is None
+    assert (
+        repository.find_matching(
+            notification.policy_number,
+            notification.loss_date,
+            notification.claim_type,
+        )
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    "reason",
+    ["timeout", "unreachable", "unparsable"],
+    ids=["timeout", "unreachable", "unparsable"],
+)
+def test_submit_propagates_policy_lookup_failed(
+    make_notification: Callable[..., NotificationRequest],
+    repository: NotificationRepository,
+    reason: LookupFailureReason,
+) -> None:
+    """PolicyLookupFailed is not a rule outcome. All three reasons stay intact."""
+    client = StubPolicyClient(fail_with=reason)
+    notification = make_notification()
+
+    with pytest.raises(PolicyLookupFailed) as raised:
+        submit_notification(notification, client, repository)
+
+    assert raised.value.reason == reason
+    assert (
+        repository.find_matching(
+            notification.policy_number,
+            notification.loss_date,
+            notification.claim_type,
+        )
+        is None
+    )
+
+
+def test_submit_records_only_when_every_rule_passes(
+    make_notification: Callable[..., NotificationRequest],
+    policy_client: StubPolicyClient,
+    repository: NotificationRepository,
+) -> None:
+    notification = make_notification()
+
+    outcome = submit_notification(notification, policy_client, repository)
+
+    assert outcome.accepted is True
+    assert outcome.failure is None
+    assert outcome.claim_reference is not None
+    found = repository.find_matching(
+        notification.policy_number,
+        notification.loss_date,
+        notification.claim_type,
+    )
+    assert found is not None
+    assert found.claim_reference == outcome.claim_reference
+
+
+def test_submit_duplicate_carries_the_existing_claim_reference(
+    make_notification: Callable[..., NotificationRequest],
+    policy_client: StubPolicyClient,
+    repository: NotificationRepository,
+) -> None:
+    """WI-0151 AC-2. A duplicate reports the recorded claim_reference."""
+    notification = make_notification()
+    first = submit_notification(notification, policy_client, repository)
+    retry = make_notification()
+
+    second = submit_notification(retry, policy_client, repository)
+
+    assert first.accepted is True
+    assert second.accepted is False
+    assert second.failure is not None
+    assert second.failure.rule == "V-6"
+    assert second.failure.code == "DUPLICATE_NOTIFICATION"
+    assert second.claim_reference == first.claim_reference
