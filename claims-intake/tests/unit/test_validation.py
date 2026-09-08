@@ -15,11 +15,13 @@ import pytest
 
 from claims.models import ClaimType, NotificationRequest, Policy, RuleFailure
 from claims.policy_client import PolicyLookupFailed, StubPolicyClient
+from claims.repository import NotificationRepository
 from claims.service import (
     evaluate_amount_within_limit,
     evaluate_claim_type_covered,
     evaluate_loss_after_inception,
     evaluate_loss_before_expiry,
+    evaluate_not_duplicate,
     evaluate_policy_exists,
     evaluate_policy_not_cancelled,
 )
@@ -249,3 +251,61 @@ def test_v1_does_not_treat_lookup_failure_as_not_found(
         evaluate_policy_exists(notification, client)
 
     assert raised.value.reason == "timeout"
+
+
+def test_v6_three_field_match_is_a_duplicate(
+    make_notification: Callable[..., NotificationRequest],
+    repository: NotificationRepository,
+) -> None:
+    """WI-0151 AC-1. Contract §4.2 V-6: policy_number, loss_date, and claim_type."""
+    recorded = make_notification()
+    repository.record(recorded, accepted=True, recorded_on=date(2026, 4, 2))
+    retry = make_notification()
+
+    failure = evaluate_not_duplicate(retry, repository)
+
+    assert _code(failure) == "DUPLICATE_NOTIFICATION"
+    assert failure is not None
+    assert failure.rule == "V-6"
+
+
+@pytest.mark.parametrize(
+    "override",
+    [
+        {"policy_number": "MOT-4472"},
+        {"loss_date": date(2026, 4, 3)},
+        {"claim_type": "theft"},
+    ],
+    ids=[
+        "differing_policy_number_is_not_a_duplicate",
+        "differing_loss_date_is_not_a_duplicate",
+        "differing_claim_type_is_not_a_duplicate",
+    ],
+)
+def test_v6_two_of_three_fields_is_not_a_duplicate(
+    make_notification: Callable[..., NotificationRequest],
+    repository: NotificationRepository,
+    override: dict[str, object],
+) -> None:
+    """WI-0151 AC-1. Two of the three fields is not a match."""
+    recorded = make_notification()
+    repository.record(recorded, accepted=True, recorded_on=date(2026, 4, 2))
+    retry = make_notification(**override)
+
+    failure = evaluate_not_duplicate(retry, repository)
+
+    assert failure is None
+
+
+def test_v6_rejected_notification_is_not_a_duplicate(
+    make_notification: Callable[..., NotificationRequest],
+    repository: NotificationRepository,
+) -> None:
+    """WI-0151 AC-3. A rejected notification was never recorded."""
+    rejected = make_notification()
+    repository.record(rejected, accepted=False, recorded_on=date(2026, 4, 2))
+    retry = make_notification()
+
+    failure = evaluate_not_duplicate(retry, repository)
+
+    assert failure is None
