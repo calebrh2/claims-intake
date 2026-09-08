@@ -85,6 +85,13 @@ def evaluate_policy_not_cancelled(
     Contract section 4.2 and WI-0158 AC-2: a loss on the cancellation date is not
     covered. WI-0158 AC-3: the rule is not applied when cancellation_date is null.
     """
+    if policy.cancellation_date is None:
+        return None
+    if notification.loss_date >= policy.cancellation_date:
+        return RuleFailure(
+            rule=RuleIdentifier("V-7"),
+            code=ErrorCode("POLICY_CANCELLED"),
+        )
     return None
 
 
