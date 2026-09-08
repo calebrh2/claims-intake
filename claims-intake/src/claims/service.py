@@ -100,6 +100,11 @@ def evaluate_loss_before_expiry(
     policy: Policy,
 ) -> RuleFailure | None:
     """V-3. The loss must not fall after the policy expiry date."""
+    if notification.loss_date > policy.expiry_date:
+        return RuleFailure(
+            rule=RuleIdentifier("V-3"),
+            code=ErrorCode("LOSS_AFTER_EXPIRY"),
+        )
     return None
 
 
