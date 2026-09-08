@@ -14,7 +14,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from claims.models import NotificationRequest, Policy, RuleFailure
+from claims.models import ErrorCode, NotificationRequest, Policy, RuleFailure, RuleIdentifier
 from claims.policy_client import PolicyClient
 from claims.repository import NotificationRepository
 
@@ -68,6 +68,11 @@ def evaluate_loss_after_inception(
     The boundary is stated in contract section 4.2 and in WI-0142 AC-3. A loss on
     the inception date is covered.
     """
+    if notification.loss_date < policy.effective_date:
+        return RuleFailure(
+            rule=RuleIdentifier("V-2"),
+            code=ErrorCode("LOSS_BEFORE_INCEPTION"),
+        )
     return None
 
 
