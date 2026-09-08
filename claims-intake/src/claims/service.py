@@ -15,7 +15,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from claims.models import ErrorCode, NotificationRequest, Policy, RuleFailure, RuleIdentifier
-from claims.policy_client import PolicyClient, PolicyNotFound
+from claims.policy_client import PolicyClient, PolicyNotFound, PolicyRecord
 from claims.repository import NotificationRepository
 
 
@@ -194,7 +194,24 @@ def evaluate_notification(
 
     Takes only a notification and a policy. No I/O, no repository, no client.
     """
+    for rule in POLICY_RULES:
+        failure = rule(notification, policy)
+        if failure is not None:
+            return failure
     return None
+
+
+def _policy_from_record(record: PolicyRecord) -> Policy:
+    """Lift the master's record into the service Policy the rules compare."""
+    return Policy(
+        policy_number=record.policy_number,
+        product=record.product,
+        effective_date=record.effective_date,
+        expiry_date=record.expiry_date,
+        cancellation_date=record.cancellation_date,
+        limit=record.limit,
+        permitted_claim_types=record.permitted_claim_types,
+    )
 
 
 def submit_notification(
@@ -208,4 +225,37 @@ def submit_notification(
     recorded with a claim reference or it does not exist, and there is no state in
     between for a later reader to interpret.
     """
-    return ValidationOutcome(accepted=False)
+    try:
+        record = policy_client.get_policy(notification.policy_number)
+    except PolicyNotFound:
+        return ValidationOutcome(
+            accepted=False,
+            failure=RuleFailure(
+                rule=RuleIdentifier("V-1"),
+                code=ErrorCode("POLICY_NOT_FOUND"),
+            ),
+        )
+
+    policy = _policy_from_record(record)
+    failure = evaluate_notification(notification, policy)
+    if failure is not None:
+        return ValidationOutcome(accepted=False, failure=failure)
+
+    duplicate = evaluate_not_duplicate(notification, repository)
+    if duplicate is not None:
+        existing = repository.find_matching(
+            notification.policy_number,
+            notification.loss_date,
+            notification.claim_type,
+        )
+        return ValidationOutcome(
+            accepted=False,
+            claim_reference=None if existing is None else existing.claim_reference,
+            failure=duplicate,
+        )
+
+    recorded = repository.record(notification, accepted=True)
+    return ValidationOutcome(
+        accepted=True,
+        claim_reference=None if recorded is None else recorded.claim_reference,
+    )
