@@ -14,11 +14,13 @@ from decimal import Decimal
 import pytest
 
 from claims.models import ClaimType, NotificationRequest, Policy, RuleFailure
+from claims.policy_client import PolicyLookupFailed, StubPolicyClient
 from claims.service import (
     evaluate_amount_within_limit,
     evaluate_claim_type_covered,
     evaluate_loss_after_inception,
     evaluate_loss_before_expiry,
+    evaluate_policy_exists,
     evaluate_policy_not_cancelled,
 )
 
@@ -204,3 +206,46 @@ def test_v5_cover_is_the_product_permitted_set(
     if expected is not None:
         assert failure is not None
         assert failure.rule == "V-5"
+
+
+@pytest.mark.parametrize(
+    ("policy_number", "expected"),
+    [
+        ("NO-SUCH-POLICY", "POLICY_NOT_FOUND"),
+        ("mot-4471", "POLICY_NOT_FOUND"),
+        ("MOT-4471", None),
+    ],
+    ids=[
+        "unknown_number_is_not_found",
+        "differing_case_is_not_a_match",
+        "existing_policy_is_not_v1",
+    ],
+)
+def test_v1_policy_number_is_exact_string_equality(
+    make_notification: Callable[..., NotificationRequest],
+    policy_client: StubPolicyClient,
+    policy_number: str,
+    expected: str | None,
+) -> None:
+    """WI-0142 AC-4. Contract §4.2 V-1: exact match with the policy master."""
+    notification = make_notification(policy_number=policy_number)
+
+    failure = evaluate_policy_exists(notification, policy_client)
+
+    assert _code(failure) == expected
+    if expected is not None:
+        assert failure is not None
+        assert failure.rule == "V-1"
+
+
+def test_v1_does_not_treat_lookup_failure_as_not_found(
+    make_notification: Callable[..., NotificationRequest],
+) -> None:
+    """PolicyLookupFailed is not a V-1 outcome. The service cannot answer."""
+    client = StubPolicyClient(fail_with="timeout")
+    notification = make_notification(policy_number="MOT-4471")
+
+    with pytest.raises(PolicyLookupFailed) as raised:
+        evaluate_policy_exists(notification, client)
+
+    assert raised.value.reason == "timeout"
