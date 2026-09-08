@@ -116,6 +116,11 @@ def evaluate_amount_within_limit(
 
     An amount equal to the limit is within cover, per contract section 4.2.
     """
+    if notification.estimated_amount > policy.limit:
+        return RuleFailure(
+            rule=RuleIdentifier("V-4"),
+            code=ErrorCode("AMOUNT_EXCEEDS_LIMIT"),
+        )
     return None
 
 
