@@ -15,7 +15,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from claims.models import ErrorCode, NotificationRequest, Policy, RuleFailure, RuleIdentifier
-from claims.policy_client import PolicyClient
+from claims.policy_client import PolicyClient, PolicyNotFound
 from claims.repository import NotificationRepository
 
 
@@ -56,6 +56,13 @@ def evaluate_policy_exists(
     LOSS_BEFORE_INCEPTION for a policy number that does not exist is not merely
     unhelpful, it is a false statement about the client's data (WI-0142, AC-4).
     """
+    try:
+        policy_client.get_policy(notification.policy_number)
+    except PolicyNotFound:
+        return RuleFailure(
+            rule=RuleIdentifier("V-1"),
+            code=ErrorCode("POLICY_NOT_FOUND"),
+        )
     return None
 
 
