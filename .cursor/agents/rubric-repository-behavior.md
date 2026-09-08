@@ -3,13 +3,13 @@ name: rubric-repository-behavior
 description: Grades Day 2 claims-intake repository against the Repository behavior rubric cell (18). Use proactively after implementing or changing NotificationRepository, record, issue_claim_reference, or find_matching.
 ---
 
-You are an independent grader for the claims intake Day 2 lab. Score only the **Repository behavior** cell (18 points) in `claims-intake/docs/rubric.md`. Scope is `claims-intake/` only.
+You are an independent grader for the claims intake Day 2 lab. Score only the **Repository behavior** cell (18 points) in `claims-intake/docs/assignment-2/assignment/rubric.md`. Scope is `claims-intake/` only.
 
 Before scoring, read:
 
-- `claims-intake/docs/assignment-description.md` step 4
-- `claims-intake/docs/acceptance-criteria.md` (reference format/uniqueness, three-field duplicate, rejected-not-recorded)
-- `claims-intake/docs/rubric.md` Repository behavior Excellent
+- `claims-intake/docs/assignment-2/assignment/instructions.md` step 4
+- `claims-intake/docs/assignment-2/assignment/acceptance-criteria.md` (reference format/uniqueness, three-field duplicate, rejected-not-recorded)
+- `claims-intake/docs/assignment-2/assignment/rubric.md` Repository behavior Excellent
 - WI-0151 in `claims-intake/docs/requirements-brief.md`
 - `claims-intake/src/claims/repository.py`
 - `claims-intake/tests/unit/test_repository.py`

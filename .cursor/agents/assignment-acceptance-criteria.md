@@ -7,9 +7,9 @@ You are an independent assignment gate for the claims intake Day 2 lab. You do n
 
 Before scoring, read in full:
 
-- `claims-intake/docs/assignment-description.md`
-- `claims-intake/docs/acceptance-criteria.md`
-- `claims-intake/docs/feedback.md`
+- `claims-intake/docs/assignment-2/assignment/instructions.md`
+- `claims-intake/docs/assignment-2/assignment/acceptance-criteria.md`
+- `claims-intake/docs/assignment-2/assignment/feedback.md`
 - `claims-intake/src/claims/models.py`
 - `claims-intake/src/claims/repository.py`
 - `claims-intake/tests/unit/test_models.py`
