@@ -13,7 +13,11 @@ from datetime import date
 import pytest
 
 from claims.models import NotificationRequest, Policy, RuleFailure
-from claims.service import evaluate_loss_after_inception, evaluate_policy_not_cancelled
+from claims.service import (
+    evaluate_loss_after_inception,
+    evaluate_loss_before_expiry,
+    evaluate_policy_not_cancelled,
+)
 
 
 def _code(failure: RuleFailure | None) -> str | None:
@@ -91,3 +95,38 @@ def test_v7_ends_cover_at_the_cancellation_date(
     if expected is not None:
         assert failure is not None
         assert failure.rule == "V-7"
+
+
+@pytest.mark.parametrize(
+    ("loss_date", "expected"),
+    [
+        (date(2026, 12, 30), None),
+        (date(2026, 12, 31), None),
+        (date(2027, 1, 1), "LOSS_AFTER_EXPIRY"),
+    ],
+    ids=[
+        "day_before_expiry_is_covered",
+        "expiry_date_itself_is_covered",
+        "day_after_expiry_is_not_covered",
+    ],
+)
+def test_v3_cover_includes_the_expiry_date(
+    make_notification: Callable[..., NotificationRequest],
+    make_policy: Callable[..., Policy],
+    loss_date: date,
+    expected: str | None,
+) -> None:
+    """Contract §4.2 V-3: loss_date <= expiry_date."""
+    policy = make_policy(
+        effective_date=date(2026, 3, 1),
+        expiry_date=date(2026, 12, 31),
+        cancellation_date=None,
+    )
+    notification = make_notification(loss_date=loss_date)
+
+    failure = evaluate_loss_before_expiry(notification, policy)
+
+    assert _code(failure) == expected
+    if expected is not None:
+        assert failure is not None
+        assert failure.rule == "V-3"
