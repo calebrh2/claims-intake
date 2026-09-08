@@ -12,35 +12,73 @@ Day 2 assignment. Implement against `docs/api-contract.md` section 3.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import UTC, date, datetime
 
-from claims.models import RecordedNotification
+from claims.models import ClaimRecord, ClaimType, NotificationRequest
 
 
 class NotificationRepository:
     """Stores recorded notifications and issues claim references."""
 
     def __init__(self) -> None:
-        raise NotImplementedError("Day 2 assignment")
+        self._records: list[ClaimRecord] = []
+        self._sequence: int = 0
 
-    def record(self, notification: object) -> RecordedNotification:
-        """Write a notification and return it with its issued claim reference.
+    def issue_claim_reference(self, recorded_on: date) -> str:
+        """Return the next `CLM-YYYY-NNNNNN`. Never reissued, even if unused."""
+        self._sequence += 1
+        return f"CLM-{recorded_on.year:04d}-{self._sequence:06d}"
 
-        The reference format is fixed by contract section 3. References are unique
-        and are never reissued.
+    def record(
+        self,
+        notification: NotificationRequest,
+        *,
+        accepted: bool,
+        recorded_on: date | None = None,
+    ) -> ClaimRecord | None:
+        """Write an accepted notification and return it with its claim reference.
+
+        Does not call `find_matching` and refuse: deciding duplicates is Day 3.
+        `accepted` has no default, so the caller must say whether the notification
+        passed. WI-0151 AC-3: a refusal writes nothing and issues no reference,
+        even if `record` is still called.
+
+        `recorded_on` is the calendar day used for `YYYY` in the claim reference.
+        When omitted, that day is today in UTC so a production caller need not
+        pass a clock. Tests pass an explicit date so the year is not "now".
         """
-        raise NotImplementedError("Day 2 assignment")
+        if not accepted:
+            return None
+        if recorded_on is None:
+            recorded_on = datetime.now(tz=UTC).date()
+        recorded = ClaimRecord(
+            claim_reference=self.issue_claim_reference(recorded_on),
+            policy_number=notification.policy_number,
+            loss_date=notification.loss_date,
+            claim_type=notification.claim_type,
+            estimated_amount=notification.estimated_amount,
+            description=notification.description,
+        )
+        self._records.append(recorded)
+        return recorded
 
     def find_matching(
         self,
         policy_number: str,
         loss_date: date,
-        claim_type: str,
-    ) -> RecordedNotification | None:
+        claim_type: ClaimType,
+    ) -> ClaimRecord | None:
         """Return an existing recorded notification matching all three values.
 
-        `WI-0151` AC-1 fixes which fields constitute a match. AC-3 is the reason
-        this searches recorded notifications only: a submission that was refused
+        WI-0151 AC-1 fixes which fields constitute a match. AC-3 is why this
+        searches recorded notifications only: a submission that was refused
         was never written, so there is nothing for a later one to duplicate.
         """
-        raise NotImplementedError("Day 2 assignment")
+        for record in self._records:
+            if (
+                record.policy_number == policy_number
+                and record.loss_date == loss_date
+                and record.claim_type == claim_type
+            ):
+                return record
+        return None
