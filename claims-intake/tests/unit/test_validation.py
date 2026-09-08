@@ -13,9 +13,10 @@ from decimal import Decimal
 
 import pytest
 
-from claims.models import NotificationRequest, Policy, RuleFailure
+from claims.models import ClaimType, NotificationRequest, Policy, RuleFailure
 from claims.service import (
     evaluate_amount_within_limit,
+    evaluate_claim_type_covered,
     evaluate_loss_after_inception,
     evaluate_loss_before_expiry,
     evaluate_policy_not_cancelled,
@@ -168,3 +169,38 @@ def test_v4_cover_includes_an_amount_equal_to_the_limit(
     if expected is not None:
         assert failure is not None
         assert failure.rule == "V-4"
+
+
+@pytest.mark.parametrize(
+    ("claim_type", "permitted_claim_types", "expected"),
+    [
+        ("collision", ("collision", "glass"), None),
+        ("theft", ("collision", "glass"), "TYPE_NOT_COVERED"),
+    ],
+    ids=[
+        "type_on_the_product_is_covered",
+        "vocabulary_type_omitted_from_the_product_is_not_covered",
+    ],
+)
+def test_v5_cover_is_the_product_permitted_set(
+    make_notification: Callable[..., NotificationRequest],
+    make_policy: Callable[..., Policy],
+    claim_type: ClaimType,
+    permitted_claim_types: tuple[ClaimType, ...],
+    expected: str | None,
+) -> None:
+    """Contract §4.2 V-5: claim_type must be permitted on the policy's product."""
+    policy = make_policy(
+        effective_date=date(2026, 3, 1),
+        expiry_date=date(2026, 12, 31),
+        cancellation_date=None,
+        permitted_claim_types=permitted_claim_types,
+    )
+    notification = make_notification(claim_type=claim_type)
+
+    failure = evaluate_claim_type_covered(notification, policy)
+
+    assert _code(failure) == expected
+    if expected is not None:
+        assert failure is not None
+        assert failure.rule == "V-5"
