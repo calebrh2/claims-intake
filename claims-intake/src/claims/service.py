@@ -154,6 +154,16 @@ def evaluate_not_duplicate(
     duplicate. This function is not a member of POLICY_RULES; see the comment
     on that tuple.
     """
+    existing = repository.find_matching(
+        notification.policy_number,
+        notification.loss_date,
+        notification.claim_type,
+    )
+    if existing is not None:
+        return RuleFailure(
+            rule=RuleIdentifier("V-6"),
+            code=ErrorCode("DUPLICATE_NOTIFICATION"),
+        )
     return None
 
 
