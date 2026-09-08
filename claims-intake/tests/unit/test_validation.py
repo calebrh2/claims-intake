@@ -9,11 +9,13 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import date
+from decimal import Decimal
 
 import pytest
 
 from claims.models import NotificationRequest, Policy, RuleFailure
 from claims.service import (
+    evaluate_amount_within_limit,
     evaluate_loss_after_inception,
     evaluate_loss_before_expiry,
     evaluate_policy_not_cancelled,
@@ -130,3 +132,39 @@ def test_v3_cover_includes_the_expiry_date(
     if expected is not None:
         assert failure is not None
         assert failure.rule == "V-3"
+
+
+@pytest.mark.parametrize(
+    ("estimated_amount", "expected"),
+    [
+        (Decimal("9999.99"), None),
+        (Decimal("10000.00"), None),
+        (Decimal("10000.01"), "AMOUNT_EXCEEDS_LIMIT"),
+    ],
+    ids=[
+        "amount_below_limit_is_within_cover",
+        "amount_equal_to_limit_is_within_cover",
+        "amount_above_limit_is_not_covered",
+    ],
+)
+def test_v4_cover_includes_an_amount_equal_to_the_limit(
+    make_notification: Callable[..., NotificationRequest],
+    make_policy: Callable[..., Policy],
+    estimated_amount: Decimal,
+    expected: str | None,
+) -> None:
+    """Contract §4.2 V-4: estimated_amount <= limit."""
+    policy = make_policy(
+        effective_date=date(2026, 3, 1),
+        expiry_date=date(2026, 12, 31),
+        cancellation_date=None,
+        limit=Decimal("10000.00"),
+    )
+    notification = make_notification(estimated_amount=estimated_amount)
+
+    failure = evaluate_amount_within_limit(notification, policy)
+
+    assert _code(failure) == expected
+    if expected is not None:
+        assert failure is not None
+        assert failure.rule == "V-4"
