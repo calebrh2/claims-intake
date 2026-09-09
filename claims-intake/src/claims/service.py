@@ -28,6 +28,11 @@ class ValidationOutcome:
     rule that refused. A V-6 duplicate also carries the existing record's
     `claim_reference` so the HTTP layer can fill contract section 5.1.
 
+    When a policy-backed rule refuses, `policy` is the record that rule compared
+    against. The HTTP layer fills section 6 from this object. Looking the policy
+    up again would not be the values the decision was made on, and a second
+    lookup that failed would turn a 422 into a 5xx.
+
     There is no status code here. Contract section 6 maps a code to a status, and
     that mapping is applied at the HTTP boundary.
     """
@@ -35,6 +40,7 @@ class ValidationOutcome:
     accepted: bool
     claim_reference: str | None = None
     failure: RuleFailure | None = None
+    policy: Policy | None = None
 
 
 def evaluate_policy_exists(
@@ -239,7 +245,7 @@ def submit_notification(
     policy = _policy_from_record(record)
     failure = evaluate_notification(notification, policy)
     if failure is not None:
-        return ValidationOutcome(accepted=False, failure=failure)
+        return ValidationOutcome(accepted=False, failure=failure, policy=policy)
 
     duplicate = evaluate_not_duplicate(notification, repository)
     if duplicate is not None:
