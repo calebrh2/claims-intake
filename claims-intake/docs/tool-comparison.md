@@ -1,53 +1,19 @@
-# Tool comparison
-
-This lab was done in Cursor. Fill this in from a task you actually performed
-on Day 4. The comparison is what is graded, not the code. An answer that says
-both tools are good is not an answer.
-
 ## Task in scope
 
 The bounded task this comparison is about (pick one and keep it specific):
 
-- Mapping `POST /notifications` onto contract section 6 (parse failures, rule
-  codes, and the three `PolicyLookupFailed` reasons), or
-- Writing `tests/integration/test_routes.py` so the suite hits HTTP rather
-  than `submit_notification`.
-
 **Your task (one sentence):**
 
->
+> The task I am talking about is creating work trees. 
 
 ## What Cursor made easy
 
-Talking points — replace with what you actually noticed:
-
-- Having the contract, `routes.py`, and `service.py` in context while choosing
-  status codes.
-- Generating a first cut of the envelope mapping or the TestClient fixture.
-- Jumping between a section 6 row and the handler that must implement it.
-
-**Your notes:**
-
->
+> Cursor made making changes to the work tree and applying them to the source branch and pushing very easy.
 
 ## What Cursor made awkward
 
-Talking points — replace with a real friction, not a generic limitation:
 
-- Confident-sounding mapping that still used FastAPI's default 422 body
-  instead of `MALFORMED_REQUEST` at 400.
-- Detail keys that look complete until you check the promised-keys table
-  (for example `timeout_ms` only on timeout, `rule` never on a lookup
-  failure).
-- Integration tests that imported `submit_notification` and never opened a
-  socket, which would fail the "through HTTP" requirement if you accepted
-  them uncritically.
-- Placeholder prose in this file or the README platform note: the tool can
-  write fluent copy that is not *your* words, which the rubric rejects.
-
-**Your notes:**
-
->
+> Cursor made creating the actual work tree awkward. I had to create an actual branch first and then attach the work tree to that branch. The /worktree command in cursor doesn't work with a non-existing branch. It was also awkward finding the actual worktree in my directory. It was under a hidden folder and an obscure name (/root/.cursor/worktrees/test-worktree-ab494190/claims-intake-95bb3c064bd8).
 
 ## Preference
 
@@ -58,4 +24,5 @@ criterion.
 
 **Your preference and reason:**
 
->
+> Overall, Cursor has done a ton of help throughout the entire project process. I created a skill that spins up grading subagents and implements assignment material, and it has worked very well based on my initial review. You can't just copy and paste the project into cursor and expect it to one-shot it without any skills/subagents, but with my workflow it works very well. For example, initially in assignment 2 (build the boundary), Cursor hallucinated the name of a class that was not part of the original assignment.
+I trust Cursor to implement the actual application logic, especially since it is running unit/integration tests and doing subagent grading in a loop. That being said, the code requires a human eye to look at it and you do need to add extensive context+ explicit instructions before doing anything. This also applies to unit/integration testing.
