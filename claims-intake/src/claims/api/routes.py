@@ -20,12 +20,11 @@ from pydantic import ValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import Request
 
-from claims.models import ErrorCode, NotificationRequest, RuleFailure
+from claims.models import ErrorCode, NotificationRequest, Policy, RuleFailure
 from claims.policy_client import (
     LookupFailureReason,
     PolicyClient,
     PolicyLookupFailed,
-    PolicyRecord,
     StubPolicyClient,
 )
 from claims.repository import NotificationRepository
@@ -148,11 +147,10 @@ def _rule_detail(
     notification: NotificationRequest,
     failure: RuleFailure,
     outcome: ValidationOutcome,
-    policy_client: PolicyClient,
 ) -> dict[str, Any]:
     """Promised detail keys from section 6. Assembled here because RuleFailure
     carries only rule and code; the values the decision used live on the
-    notification and, for most rows, the policy record.
+    notification and, for policy-backed rows, on `outcome.policy`.
     """
     code = str(failure.code)
     rule = str(failure.rule)
@@ -166,30 +164,32 @@ def _rule_detail(
             "loss_date": notification.loss_date.isoformat(),
             "claim_type": notification.claim_type,
         }
-    record = policy_client.get_policy(notification.policy_number)
-    return _policy_rule_detail(code, rule, notification, record)
+    policy = outcome.policy
+    if policy is None:
+        return {"rule": rule}
+    return _policy_rule_detail(code, rule, notification, policy)
 
 
 def _policy_rule_detail(
     code: str,
     rule: str,
     notification: NotificationRequest,
-    record: PolicyRecord,
+    policy: Policy,
 ) -> dict[str, Any]:
     if code == "LOSS_BEFORE_INCEPTION":
         return {
             "rule": rule,
             "loss_date": notification.loss_date.isoformat(),
-            "effective_date": record.effective_date.isoformat(),
+            "effective_date": policy.effective_date.isoformat(),
         }
     if code == "LOSS_AFTER_EXPIRY":
         return {
             "rule": rule,
             "loss_date": notification.loss_date.isoformat(),
-            "expiry_date": record.expiry_date.isoformat(),
+            "expiry_date": policy.expiry_date.isoformat(),
         }
     if code == "POLICY_CANCELLED":
-        cancellation = record.cancellation_date
+        cancellation = policy.cancellation_date
         return {
             "rule": rule,
             "loss_date": notification.loss_date.isoformat(),
@@ -199,13 +199,13 @@ def _policy_rule_detail(
         return {
             "rule": rule,
             "estimated_amount": _decimal_wire(notification.estimated_amount),
-            "limit": _decimal_wire(record.limit),
+            "limit": _decimal_wire(policy.limit),
         }
     if code == "TYPE_NOT_COVERED":
         return {
             "rule": rule,
             "claim_type": notification.claim_type,
-            "product": record.product,
+            "product": policy.product,
         }
     return {"rule": rule}
 
@@ -291,5 +291,5 @@ def create_notification(
     return _envelope(
         str(failure.code),
         _rule_message(failure.code),
-        _rule_detail(notification, failure, outcome, policy_client),
+        _rule_detail(notification, failure, outcome),
     )

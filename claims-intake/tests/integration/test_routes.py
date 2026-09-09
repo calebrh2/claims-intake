@@ -18,7 +18,7 @@ from fastapi.testclient import TestClient
 from httpx import Response
 
 from claims.api.routes import app, get_policy_client, get_repository
-from claims.policy_client import LookupFailureReason, StubPolicyClient
+from claims.policy_client import LookupFailureReason, PolicyRecord, StubPolicyClient
 from claims.repository import NotificationRepository
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
@@ -104,6 +104,39 @@ def test_each_rule_returns_contract_code_and_status(
     assert body["code"] == code
     assert body["detail"]["rule"] == rule
     _assert_actionable_detail(code, body["detail"])
+
+
+class _CountingPolicyClient:
+    """Counts get_policy calls so a rejection cannot hide a second lookup."""
+
+    def __init__(self, inner: StubPolicyClient) -> None:
+        self._inner = inner
+        self.calls = 0
+
+    def get_policy(self, policy_number: str) -> PolicyRecord:
+        self.calls += 1
+        return self._inner.get_policy(policy_number)
+
+
+def test_policy_rule_rejection_looks_up_the_policy_once() -> None:
+    """A 422 must use the policy the decision already had. A second lookup
+    would not be the values the decision was made on, and a failure on that
+    call would turn a rule refusal into a 5xx.
+    """
+    counting = _CountingPolicyClient(StubPolicyClient())
+    repository = NotificationRepository()
+    app.dependency_overrides[get_policy_client] = lambda: counting
+    app.dependency_overrides[get_repository] = lambda: repository
+    try:
+        with TestClient(app) as client:
+            response = _post(client, INVALID["INVALID-03"])
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["code"] == "LOSS_AFTER_EXPIRY"
+    assert counting.calls == 1
 
 
 def test_duplicate_notification_returns_409_with_existing_reference(
