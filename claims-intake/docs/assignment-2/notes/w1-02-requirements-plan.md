@@ -2,7 +2,7 @@
 
 This document is a study guide and an implementation brief for Day 2 of the claims intake lab. Read it to understand what the assignment is actually testing, which decisions the types must encode, and how each requirements step maps to acceptance criteria and the rubric. Implement from it later; this file is not itself a Day 2 deliverable.
 
-The assignment source of truth is [`docs/W1-02-requirements.md`](W1-02-requirements.md). The service's authority on behaviour is [`docs/api-contract.md`](api-contract.md). Where the assignment wording and the contract disagree, the contract wins.
+The assignment source of truth is [`docs/assignment-2/assignment/instructions.md`](../assignment/instructions.md), with [`acceptance-criteria.md`](../assignment/acceptance-criteria.md) and [`rubric.md`](../assignment/rubric.md). [`W1-02-requirements.md`](W1-02-requirements.md) is a working paraphrase, not the graded pack. The service's authority on behaviour is [`docs/api-contract.md`](../../api-contract.md). Where the assignment wording and the contract disagree, the contract wins.
 
 ---
 
@@ -33,7 +33,7 @@ Work through these in order. Each one answers a question the code will force you
 
 ### 2.1 Contract sections 2.2, 2.3, and 2.4
 
-[`docs/api-contract.md`](api-contract.md) sections 1 through 3 are fixed. Do not edit them. Day 2 models are built against 2 and 3.
+[`docs/api-contract.md`](../../api-contract.md) sections 1 through 3 are fixed. Do not edit them. Day 2 models are built against 2 and 3.
 
 **Section 2.2** lists the five request fields, which are required, and the notes that become field constraints:
 
@@ -72,7 +72,7 @@ This is why the repository has no `reject()` that writes. Recording is the only 
 
 ### 2.3 WI-0151 — duplicates live in the store, not the rule table
 
-From [`docs/requirements-brief.md`](requirements-brief.md):
+From [`docs/requirements-brief.md`](../../requirements-brief.md):
 
 - AC-1: match on `policy_number`, `loss_date`, and `claim_type` **together**. Two of three is not a duplicate.
 - AC-2: HTTP 409, code `DUPLICATE_NOTIFICATION`, existing `claim_reference` in `detail`. **Not today.** The repository returns the existing record or `None`. Day 3 turns that into a `ValidationOutcome`. Day 4 turns that into 409.
@@ -93,7 +93,7 @@ You do **not** write `if loss_date >= cancellation_date`. That is Day 3.
 
 ### 2.5 `PolicyRecord` is the source of `Policy`
 
-[`src/claims/policy_client.py`](../src/claims/policy_client.py) already ships complete. `PolicyRecord` is a plain object, deliberately not Pydantic, and it is what you build `Policy` from:
+[`src/claims/policy_client.py`](../../../src/claims/policy_client.py) already ships complete. `PolicyRecord` is a plain object, deliberately not Pydantic, and it is what you build `Policy` from:
 
 - `policy_number: str`
 - `product: str`
@@ -115,7 +115,7 @@ See section 4 below.
 
 ### 2.7 Prerequisite: Day 1 contract work on this branch
 
-On this branch, [`docs/api-contract.md`](api-contract.md) sections 4 through 6 are filled. The rule table includes V-6 (WI-0151) and V-7 (WI-0158), evaluation order is `V-1, V-2, V-7, V-3, V-4, V-5, V-6`, the error envelope is specified, and section 6 already maps `MALFORMED_REQUEST` at 400. The EDGE-07 / EDGE-11 / EDGE-12 decisions are in section 4 and in [`docs/payload-triage.md`](payload-triage.md).
+On this branch, [`docs/api-contract.md`](../../api-contract.md) sections 4 through 6 are filled. The rule table includes V-6 (WI-0151) and V-7 (WI-0158), evaluation order is `V-1, V-2, V-7, V-3, V-4, V-5, V-6`, the error envelope is specified, and section 6 already maps `MALFORMED_REQUEST` at 400. The EDGE-07 / EDGE-11 / EDGE-12 decisions are in section 4 and in [`docs/payload-triage.md`](../../payload-triage.md).
 
 That does **not** change what Day 2 implements. NotificationRequest is specified by sections 2 and 3. It does mean:
 
@@ -155,11 +155,11 @@ The module docstring already warns you: if you find yourself writing rule logic 
 
 ### 3.4 Tests
 
-[`tests/conftest.py`](../tests/conftest.py) has `policy_client` only. There is no `tests/unit/` yet. You will add `test_models.py` and `test_repository.py`, and you will likely add factory fixtures to `conftest.py`. Those factories are supporting work, not one of the four named deliverable files.
+[`tests/conftest.py`](../../../tests/conftest.py) has `policy_client` only. There is no `tests/unit/` yet. You will add `test_models.py` and `test_repository.py`, and you will likely add factory fixtures to `conftest.py`. Those factories are supporting work, not one of the four named deliverable files.
 
 ### 3.5 Tooling
 
-[`pyproject.toml`](../pyproject.toml): Python >= 3.12, Pydantic, FastAPI, `mypy` with `strict = true` on `src` and `tests`, ruff line-length 100. No Pydantic mypy plugin is configured. If strict mypy cannot see Pydantic field types, adding `plugins = ["pydantic.mypy"]` is a config change, not a suppression comment.
+[`pyproject.toml`](../../../pyproject.toml): Python >= 3.12, Pydantic, FastAPI, `mypy` with `strict = true` on `src` and `tests`, ruff line-length 100. No Pydantic mypy plugin is configured. If strict mypy cannot see Pydantic field types, adding `plugins = ["pydantic.mypy"]` is a config change, not a suppression comment.
 
 ---
 
@@ -212,7 +212,7 @@ All eight are well formed and should parse. VALID-06 omits `description`; that i
 
 ## 5. Concrete steps
 
-Each step below is one item from [`docs/W1-02-requirements.md`](W1-02-requirements.md). For each: what to do, which files, which ACs, how it scores on the rubric, and what "Excellent" requires that "merely works" does not.
+Each step below is one item from [`docs/assignment-2/notes/W1-02-requirements.md`](W1-02-requirements.md). For each: what to do, which files, which ACs, how it scores on the rubric, and what "Excellent" requires that "merely works" does not.
 
 ---
 
@@ -220,7 +220,7 @@ Each step below is one item from [`docs/W1-02-requirements.md`](W1-02-requiremen
 
 **Requirements item 1.** Parse the payload. Reject anything structurally unacceptable. Every field carries the type that makes the downstream comparison correct, extra fields are forbidden, and no field carries a default that invents data the caller did not send. Choices follow from the contract, not from an article's example.
 
-**File:** [`src/claims/models.py`](../src/claims/models.py)
+**File:** [`src/claims/models.py`](../../../src/claims/models.py)
 
 **Recommended shape** (choices traced to contract lines):
 
@@ -270,7 +270,7 @@ Why each choice:
 
 **Requirements item 2.** Policy represents what the policy master returns, including `cancellation_date`, whose type must take WI-0158. (The assignment writes `cancellation_data` once; the field name in `PolicyRecord` and the work item is `cancellation_date`.)
 
-**File:** [`src/claims/models.py`](../src/claims/models.py)
+**File:** [`src/claims/models.py`](../../../src/claims/models.py)
 
 **Recommended shape:**
 
@@ -319,7 +319,7 @@ If `from_record` would import `PolicyRecord` and create a cycle, construct `Poli
 
 **Requirements item 3.** `RuleFailure` carries a rule identifier and an error code and is immutable. It exists so that a rule identifier can never be passed where an error code is expected. `ClaimRecord` / `RecordedNotification` represents a recorded notification and carries its claim reference.
 
-**File:** [`src/claims/models.py`](../src/claims/models.py)
+**File:** [`src/claims/models.py`](../../../src/claims/models.py)
 
 **`RuleFailure`.** Use a frozen dataclass, not a Pydantic model. It is not a request payload; using Pydantic would invite `model_validate(dict)` from other modules.
 
@@ -357,7 +357,7 @@ Use `date` and `Decimal` here too. The AC says no date or money value anywhere i
 
 **Requirements item 4.** Store accepted notifications. Return a claim reference matching section 3. Unique across all records. Two load-bearing behaviours from WI-0151: (1) duplicate query on the three-field composite; (2) a rejected notification is not recorded, so it can never be duplicated.
 
-**File:** [`src/claims/repository.py`](../src/claims/repository.py)
+**File:** [`src/claims/repository.py`](../../../src/claims/repository.py)
 
 **Excellent on Repository behavior (18) requires three separately named, separately testable behaviours.** Entangling them is Proficient (14): "duplicate detection or reference generation is entangled with recording in a way that makes one of them awkward to test on its own." Putting 409 / `DUPLICATE_NOTIFICATION` / cancellation into this module is Inadequate (3).
 
@@ -466,7 +466,7 @@ Suggested groups (each group is one parametrized test, not one test per row):
 
 **File to add:** `tests/unit/test_repository.py`
 
-**Supporting:** factory fixtures in [`tests/conftest.py`](../tests/conftest.py), for example `make_notification() -> NotificationRequest` and `repository() -> NotificationRepository`. Each call returns a new instance. Do not yield a shared in-memory list of records.
+**Supporting:** factory fixtures in [`tests/conftest.py`](../../../tests/conftest.py), for example `make_notification() -> NotificationRequest` and `repository() -> NotificationRepository`. Each call returns a new instance. Do not yield a shared in-memory list of records.
 
 Cover, as separate tests (parametrize where there are multiple inputs):
 
@@ -519,12 +519,12 @@ Likely issues and the honest fix:
 
 ### Step 8. Reconcile the contract
 
-**Requirements item 8.** Models can now reject payloads, and every rejection is a response the service produces. Compare what the models actually refuse against section 6. Anything missing gets added, with its code and status. Record what changed and why in a short reconciliation note at the end of [`docs/payload-triage.md`](payload-triage.md). If nothing was missing, say so and say how you checked.
+**Requirements item 8.** Models can now reject payloads, and every rejection is a response the service produces. Compare what the models actually refuse against section 6. Anything missing gets added, with its code and status. Record what changed and why in a short reconciliation note at the end of [`docs/payload-triage.md`](../../payload-triage.md). If nothing was missing, say so and say how you checked.
 
 **Files:**
 
-- [`docs/payload-triage.md`](payload-triage.md) — the Day 2 reconciliation note is already appended. Do not rewrite the Day 1 classification or decision log; the note is a separate section at the end.
-- [`docs/api-contract.md`](api-contract.md) — **section 6 only**, and only if a model-produced code is missing. Sections 1–3 are fixed. Day 1 already filled sections 4–6 (V-6, V-7, envelope, dependency 5xx, `MALFORMED_REQUEST`). Do not redo that work. On this branch the inventory found no missing model-produced code, so section 6 was not amended.
+- [`docs/payload-triage.md`](../../payload-triage.md) — the Day 2 reconciliation note is already appended. Do not rewrite the Day 1 classification or decision log; the note is a separate section at the end.
+- [`docs/api-contract.md`](../../api-contract.md) — **section 6 only**, and only if a model-produced code is missing. Sections 1–3 are fixed. Day 1 already filled sections 4–6 (V-6, V-7, envelope, dependency 5xx, `MALFORMED_REQUEST`). Do not redo that work. On this branch the inventory found no missing model-produced code, so section 6 was not amended.
 
 **What "codes the models can produce" means.** Pydantic raises `ValidationError`; it does not emit `LOSS_BEFORE_INCEPTION`. The models refuse. Day 4 will map that refusal onto the error envelope. The contract must name the code and status for that class of refusal so the service cannot return a response the contract does not describe.
 
@@ -585,7 +585,7 @@ The boundary between deciding and doing is the thing you are practicing.
 | `docs/payload-triage.md` | Reconciliation note already appended |
 | `docs/api-contract.md` | Amend section 6 only if the inventory finds a missing model-produced code |
 
-This plan file (`docs/w1-02-requirements-plan.md`) is not one of the four code files and is not the reconciliation note. Do not submit it as a substitute for the deliverable.
+This plan file (`docs/assignment-2/notes/w1-02-requirements-plan.md`) is not one of the four code files and is not the reconciliation note. Do not submit it as a substitute for the deliverable.
 
 ### 7.2 Supporting, only if needed
 

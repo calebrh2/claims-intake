@@ -16,6 +16,7 @@ can follow it to a running service.
 | `docs/api-contract.md` | What the service accepts, returns, and refuses. The authority. |
 | `docs/requirements-brief.md` | The open work items and their acceptance criteria. |
 | `docs/payload-triage.md` | Your Day 1 classification of the edge payloads. |
+| `docs/assignment-N/` | That day's instructions, acceptance criteria, rubric, and articles. See `docs/README.md`. |
 | `data/` | Synthetic policies and notification payloads. |
 | `src/claims/` | The service. |
 | `tests/` | Unit tests mirror `src/claims/`. Integration tests exercise HTTP. |
