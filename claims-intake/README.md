@@ -89,6 +89,8 @@ The same `curl` as above talks to the process inside the image.
 
 ### Why `--platform linux/amd64`
 
+"docker buildx" can build images that differ from the host architecture. Regular "docker build" uses the host's architecture (in this case Linux aarch64/ ARM64).The --platform flag specifies that the machine doing the build is not the machine the image is meant to run on. The target platform (production) of this build is linux/amd64. Since the production/deployment of this container is amd64 and so is ubuntu-latest in GitHub Actions, so an aarch64 image does not match the CI pipeline either.
+
 **Author notes — write this section in your own words before review.** The
 rubric scores whether the explanation shows you understand why the host and
 the target differ, not whether you restated the command.
